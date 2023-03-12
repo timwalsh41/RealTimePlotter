@@ -79,8 +79,7 @@ def update_plot(rtp: RealTimePlotter):
     d['Random1'] = gauss(mu=0, sigma=0.1)
     d['Random2'] = gauss(mu=0.2, sigma=0.05)
 
-    rtp.update_data(d)
-    rtp.update()
+    rtp.update(d)
 
 
 if __name__ == '__main__':

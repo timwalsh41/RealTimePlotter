@@ -317,18 +317,6 @@ class RealTimePlotter:
         print(f'Saved data to {filename}')
 
 
-    def update_data(self, new_data: dict):
-        """
-        Add new data by passing in a dictionary of curve names and new data values
-        """
-        for (key,val) in new_data.items():
-            if key in self._curves.keys():
-                if isinstance(val, float):
-                    self._curves[key].append_data(val)
-                else:
-                    print(f'Rejecting value {val} for curve {key}')
-
-
     def _update_plot(self):
         self._fig.canvas.restore_region(self._bg)
 
@@ -407,15 +395,25 @@ class RealTimePlotter:
         self._update_plot()
 
 
-    def update(self):
+    def update(self, new_data: dict):
         """
-        Update plot to the latest data, should be called after updating curve data with update_data
+        Update plot with new data
         """
         # one question here - should we somehow force all curves to be updated at each interval?
         # e.g. if we update some but not all curves, but then call update(), what to do? Put in
         # zeros for the curves that have not yet been updated? but then how to keep track of what's
         # been updated and what hasn't? could add (time,value) pairs instead of just data values
         # I think for now just force the user to keep data in sync
+
+        if self._fig is None:
+            raise RuntimeError('Call start_animation before updating plot')
+
+        for (key,val) in new_data.items():
+            if key in self._curves.keys():
+                try:
+                    self._curves[key].append_data(float(val))                
+                except:
+                    print(f'Rejecting value {val} for curve {key}, invalid type')
 
         self._fig.canvas.restore_region(self._bg)
         self._update_plot()
