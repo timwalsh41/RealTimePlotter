@@ -222,7 +222,7 @@ class RealTimePlotter:
         """
         Add buttons to button list to be rendered when plot is drawn
         """
-        if self._plotobject_pos >= (1 - PLOTOBJECT_STEP):
+        if self._plotobject_pos >= (1.1 - PLOTOBJECT_STEP):
             print('Out of room for buttons')
             return
 
@@ -253,6 +253,10 @@ class RealTimePlotter:
                 continue
             self._plotobject_pos += PLOTOBJECT_STEP
             self._create_button(plot_object, self._plotobject_pos)
+
+        # increment the plot object position marker for adding subsequent objects (e.g. a
+        # label) outside of this function
+        self._plotobject_pos += PLOTOBJECT_STEP
         
 
     def _create_button(self, button_object, position):
@@ -284,15 +288,15 @@ class RealTimePlotter:
         if not isinstance(width, int) or width < 1:
             raise TypeError('width must be an integer greater than zero')
 
-        if self._plotobject_pos + width*PLOTOBJECT_STEP > 1.2:
+        if self._plotobject_pos + width*PLOTOBJECT_STEP > 1.1:
             print('Label width is larger than available space')
-            print(self._plotobject_pos + width*PLOTOBJECT_STEP)
-            print(PLOTOBJECT_STEP - PLOTOBJECT_WIDTH)
             return
 
         self._plotobject_list.append(PlotObjectData(type=PlotObject.LABEL, width=width,
                                                     caption=caption, callback=None))
         
+        self._plotobject_pos += PLOTOBJECT_STEP*width
+
         # set _label to a non-None object to prevent additional labels from being added
         self._label = 0
 
@@ -352,7 +356,8 @@ class RealTimePlotter:
             raise RuntimeError('Call start_animation before updating label')
         
         if self._label is None:
-            raise RuntimeError('No label in plott, add a label with add_label before starting animation')
+            print('No label in plot, add a label with add_label before starting animation')
+            return
 
         if not isinstance(text, str):
             raise TypeError('Label text must be a string')

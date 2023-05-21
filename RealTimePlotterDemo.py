@@ -61,7 +61,7 @@ def prepare_plot():
     rtp.add_button("Fin", exit_demo)
     rtp.add_button("Done", exit_demo)
     rtp.add_button("Stop", exit_demo)
-    
+        
     return rtp
 
 
