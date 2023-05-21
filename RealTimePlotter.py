@@ -482,7 +482,7 @@ class RealTimePlotter:
                                               PLOTOBJECT_HEIGHT/2, 
                                               PLOTOBJECT_WIDTH*label_item.width, 
                                               PLOTOBJECT_HEIGHT])
-            self._label = self._label_axes.text(0, 0, label_item.caption, fontsize=14, animated=True)
+            self._label = self._label_axes.text(0, 0, label_item.caption, fontsize=12, animated=True)
             self._label_axes.get_xaxis().set_visible(False)
             self._label_axes.get_yaxis().set_visible(False)
         except:
