@@ -40,7 +40,10 @@ class RealTimePlotterTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             plotter = RealTimePlotter(display_len=-2)
 
+
     def testAddCurve(self):
         p = RealTimePlotter(num_rows=2, num_cols=2, display_len=100)
-        p.add_curve()
+        p.add_curve("Test")
 
+        with self.assertRaises(ValueError):
+            p.add_curve("Test")

@@ -2,11 +2,11 @@ import numpy as np
 import time
 from random import gauss
 from RealTimePlotter import RealTimePlotter
-from InfiniteTimer.InfiniteTimer import InfiniteTimer
 
 AMPLITUDE = 1
 FREQUENCY = 0.25
 UPDATE_TIME_S = 0.05
+LABEL_UPDATE_TIME = 1.
 
 continue_flag = True
 
@@ -56,17 +56,12 @@ def prepare_plot():
 
     rtp.add_button("Exit", exit_demo)
     rtp.add_button("Quit", exit_demo)
-    rtp.add_button("Leave", exit_demo)
     rtp.add_button("Bye", exit_demo)
+    rtp.add_label(width=7, caption='My label')
     rtp.add_button("Fin", exit_demo)
-    rtp.add_button("Adios", exit_demo)
-    rtp.add_button("Aloha", exit_demo)
     rtp.add_button("Done", exit_demo)
     rtp.add_button("Stop", exit_demo)
-    rtp.add_button("Complete", exit_demo)
-    rtp.add_button("Adieu", exit_demo)
-    rtp.add_button("TooMany", exit_demo)
-
+    
     return rtp
 
 
@@ -91,8 +86,15 @@ if __name__ == '__main__':
     # timer = InfiniteTimer(0.25, update_plot, (rtp,))
     # timer.start()
 
+    next_label_update = time.time() + LABEL_UPDATE_TIME
+
     while True:
         if not continue_flag:
             break
+
+        if time.time() > next_label_update:
+            rtp.set_label_text(f'{time.time():.2f}')
+            next_label_update = time.time() + LABEL_UPDATE_TIME
+
         update_plot(rtp)
         time.sleep(UPDATE_TIME_S)

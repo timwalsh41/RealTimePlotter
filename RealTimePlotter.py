@@ -9,11 +9,17 @@ import dataclasses
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Button
+from enum import Enum
 
 
-BUTTON_WIDTH = 0.07
-BUTTON_STEP = 0.08
-BUTTON_HEIGHT = 0.025
+PLOTOBJECT_WIDTH = 0.07
+PLOTOBJECT_STEP = 0.08
+PLOTOBJECT_HEIGHT = 0.025
+
+
+class PlotObject(Enum):
+    BUTTON = 0
+    LABEL = 1
 
 
 class PlotData:
@@ -23,7 +29,10 @@ class PlotData:
     """
 
     def __init__(self, plot_len):
+        # _data holds an array of values for this curev
         self._data = deque([0]*plot_len, maxlen=plot_len)
+
+        # _subplots is a list of subplots this curve is included in
         self._subplots = []
 
         # _lines is a dictionary which uses the subplot index as a key, and holds the line object
@@ -86,10 +95,12 @@ class PlotData:
 
 
 @dataclasses.dataclass
-class ButtonData:
+class PlotObjectData:
     """
     Helper class to store button data for user-generated buttons
     """
+    type: PlotObject
+    width: int
     caption: str
     callback: callable
 
@@ -140,17 +151,23 @@ class RealTimePlotter:
 
         # initialize _button_pos to reserve space for save data button, with a bit of buffer to
         # the left edge of the window
-        self._button_pos = 1.25*BUTTON_STEP
+        self._plotobject_pos = 1.25*PLOTOBJECT_STEP
 
         # list to store button data for buttons requested by the user
-        self._buttondata_list = []
+        self._plotobject_list = []
 
-        # list to store the actual button objects
-        self._bottonobject_list = []
+        # list to store the actual button objects; note we don't actually do anything with this,
+        # but we need to store the button object handles or else the buttons will not work (e.g.
+        # clicking them won't trigger the callback
+        self._buttonobject_list = []
 
         # we will store plot data in a dictionary where the key is a name string and the value
         # is a deque holding the curve data
         self._curves = {}
+
+        # we can accommodate up to one text label of variable width that will be stored in the
+        #  _label object
+        self._label = None
 
 
     def _get_linear_index(self, row: int, col: int):
@@ -205,28 +222,79 @@ class RealTimePlotter:
         """
         Add buttons to button list to be rendered when plot is drawn
         """
-        if self._button_pos >= (1 - BUTTON_STEP):
+        if self._plotobject_pos >= (1 - PLOTOBJECT_STEP):
             print('Out of room for buttons')
             return
 
         if not isinstance(caption, str):
-            raise TypeError('caption should be a string')
+            raise TypeError('caption must be a string')
 
         if not callable(callback):
             raise TypeError('callback must be callable')
 
-        self._buttondata_list.append(ButtonData(caption=caption, callback=callback))
-        self._button_pos += BUTTON_STEP
+        self._plotobject_list.append(PlotObjectData(type=PlotObject.BUTTON, width=1, 
+                                                    caption=caption, callback=callback))
+        self._plotobject_pos += PLOTOBJECT_STEP
 
 
-    def _create_button(self, x_position, caption, callback):
+    def _create_plot_objects(self):
         """
-        Create the button objects on the plot
+        Add plot objects (buttons, label) to plot
         """
-        button_axes = self._fig.add_axes([x_position, BUTTON_HEIGHT/2, BUTTON_WIDTH, BUTTON_HEIGHT])
-        button = Button(button_axes, caption)
-        button.on_clicked(callback)
-        self._bottonobject_list.append(button)
+
+        # we always start with a save data button
+        self._plotobject_pos = 0.25*PLOTOBJECT_STEP
+        self._create_button(PlotObjectData(PlotObject.BUTTON, 1, 'Save', self._save_data), 
+                            self._plotobject_pos)
+
+        # add all the user buttons
+        for plot_object in self._plotobject_list:
+            if plot_object.type == PlotObject.LABEL:
+                continue
+            self._plotobject_pos += PLOTOBJECT_STEP
+            self._create_button(plot_object, self._plotobject_pos)
+        
+
+    def _create_button(self, button_object, position):
+        """
+        Add a button to the plot
+        """
+
+        button_axes = self._fig.add_axes([position, 
+                                              PLOTOBJECT_HEIGHT/2, 
+                                              PLOTOBJECT_WIDTH, 
+                                              PLOTOBJECT_HEIGHT])
+        button = Button(button_axes, button_object.caption)
+        button.on_clicked(button_object.callback)
+        self._buttonobject_list.append(button)
+
+
+    def add_label(self, width=1, caption=''):
+        """
+        Add a label, width is specified in units of button widths
+        """
+
+        if self._label is not None:
+            # we only accept a single label
+            return
+        
+        if not isinstance(caption, str):
+            raise TypeError('caption must be a string')
+
+        if not isinstance(width, int) or width < 1:
+            raise TypeError('width must be an integer greater than zero')
+
+        if self._plotobject_pos + width*PLOTOBJECT_STEP > 1.2:
+            print('Label width is larger than available space')
+            print(self._plotobject_pos + width*PLOTOBJECT_STEP)
+            print(PLOTOBJECT_STEP - PLOTOBJECT_WIDTH)
+            return
+
+        self._plotobject_list.append(PlotObjectData(type=PlotObject.LABEL, width=width,
+                                                    caption=caption, callback=None))
+        
+        # set _label to a non-None object to prevent additional labels from being added
+        self._label = 0
 
 
     def set_axis_ylabel(self, row: int, col: int, title: str):
@@ -275,6 +343,23 @@ class RealTimePlotter:
         self._plot_settings.y_axis_limits[self._get_linear_index(row, col)] = ylimit[:2]
 
 
+    def set_label_text(self, text: str):
+        """
+        Update label text
+        """
+
+        if self._fig is None:
+            raise RuntimeError('Call start_animation before updating label')
+        
+        if self._label is None:
+            raise RuntimeError('No label in plott, add a label with add_label before starting animation')
+
+        if not isinstance(text, str):
+            raise TypeError('Label text must be a string')
+
+        self._label.set_text(text)
+
+
     def _is_bottom_row(self, plot_index: int):
         """
         Check if plot_index is a subplot on the bottom row
@@ -321,8 +406,13 @@ class RealTimePlotter:
         self._fig.canvas.restore_region(self._bg)
 
         for curve in self._curves.values():
+            # redraw updated curve
             for subplot in curve.get_subplots():
                 self._ax[subplot].draw_artist(curve.get_line(subplot))
+
+        # draw updated label
+        if self._label is not None:
+            self._label_axes.draw_artist(self._label)
 
         self._fig.canvas.blit(self._fig.bbox)
 
@@ -376,13 +466,23 @@ class RealTimePlotter:
         self._fig.tight_layout()
         self._fig.subplots_adjust(bottom=0.1)
 
-        button_position = 0.25*BUTTON_STEP
-        self._create_button(button_position, 'Save', self._save_data)
+        # add buttons and label to plot
+        self._create_plot_objects()
 
-        for button in self._buttondata_list:
-            button_position += BUTTON_STEP
-            self._create_button(button_position, button.caption, button.callback)
-
+        # now add the label (if it exists); we do this separately from the other plot objects as
+        # this is updated as part of the animation whenever the user calls set_label_text
+        try:
+            label_item = next((obj for obj in self._plotobject_list if obj.type == PlotObject.LABEL))
+            self._label_axes = self._fig.add_axes([self._plotobject_pos, 
+                                              PLOTOBJECT_HEIGHT/2, 
+                                              PLOTOBJECT_WIDTH*label_item.width, 
+                                              PLOTOBJECT_HEIGHT])
+            self._label = self._label_axes.text(0, 0, label_item.caption, fontsize=14, animated=True)
+            self._label_axes.get_xaxis().set_visible(False)
+            self._label_axes.get_yaxis().set_visible(False)
+        except:
+            pass
+        
         plt.show(block=False)
 
         # pause to allow figure to render fully
